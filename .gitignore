@@ -3,5 +3,6 @@ __pycache__/
 *.pyc
 *.log
 *.lock
-/data/videos
+/src/data/videos
 /checkpoints
+/output
