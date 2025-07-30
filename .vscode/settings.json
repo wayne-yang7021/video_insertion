@@ -1,0 +1,7 @@
+{
+    "python.analysis.extraPaths": [
+        "src",
+        "./external/midas"
+    ],
+    "python.envFile": "${workspaceFolder}/.env"
+}

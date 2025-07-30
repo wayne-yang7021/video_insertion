@@ -17,6 +17,9 @@ Requires-Dist: scikit-image
 Requires-Dist: scikit-learn
 Requires-Dist: transformers
 Requires-Dist: sentence-transformers
+Requires-Dist: supervision>=0.26.1
+Requires-Dist: ultralytics>=8.3.170
+Requires-Dist: detectron2
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

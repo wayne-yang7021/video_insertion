@@ -21,6 +21,9 @@ dependencies = [
     "scikit-learn",
     "transformers",
     "sentence-transformers",
+    "supervision>=0.26.1",
+    "ultralytics>=8.3.170",
+    "detectron2",
 ]
 
 [tool.setuptools]
@@ -28,6 +31,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv.sources]
+detectron2 = { git = "https://github.com/facebookresearch/detectron2.git" }
 
 
 [project.optional-dependencies]

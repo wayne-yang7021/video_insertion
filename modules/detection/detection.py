@@ -15,6 +15,7 @@ class ObjectDetector:
 
         instances = outputs["instances"].to("cpu")
         results = []
+
         for i in range(len(instances)):
             result = {
                 "label": self.class_names[instances.pred_classes[i]],

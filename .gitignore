@@ -4,5 +4,7 @@ __pycache__/
 *.log
 *.lock
 /src/data/videos
+/data/videos
 /checkpoints
 /output
+.env

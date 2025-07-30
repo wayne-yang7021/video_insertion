@@ -3,7 +3,7 @@ from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog
 
-class Model:
+class DetectronModel:
     def init(self):
         self.detectron = None
 
@@ -17,4 +17,6 @@ class Model:
         # Get dataset name from config, not from DefaultPredictor
         dataset_name = cfg.DATASETS.TRAIN[0]
         self.coco_classes = MetadataCatalog.get(dataset_name).thing_classes
+        print(self.coco_classes)
         return self.detector, self.coco_classes
+

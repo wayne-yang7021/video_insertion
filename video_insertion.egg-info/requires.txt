@@ -10,6 +10,9 @@ scikit-image
 scikit-learn
 transformers
 sentence-transformers
+supervision>=0.26.1
+ultralytics>=8.3.170
+detectron2
 
 [dev]
 black
