@@ -37,7 +37,7 @@ source .venv/bin/activate        # Linux/macOS
 使用 `pyproject.toml` 中的設定安裝：
 
 ```bash
-uv pip sync
+uv pip sync pyproject.toml
 ```
 
 ---
