@@ -58,7 +58,7 @@ calculate_semantic_compatibility(
 - `object_info` (Dict): 要插入物件的資訊
   ```python
   {
-      'primary_label': str,        # 物件標籤，如 "cup", "book"
+      'primary_label': str,        # 物件標籤，如 "cup", "book", "cell phone"
       'embedding': np.ndarray,     # 物件的CLIP嵌入向量 (shape: [512,])
       'id': str,                   # 物件ID (可選)
       # 其他物件屬性...
@@ -68,7 +68,7 @@ calculate_semantic_compatibility(
 - `surface_obj` (Dict): 背景表面物件資訊
   ```python
   {
-      'label': str,                # 表面標籤，如 "table", "desk"
+      'label': str,                # 表面標籤，如 "dining table", "chair", "couch"
       'bbox': List[float],         # 邊界框座標 [x1, y1, x2, y2]
       'confidence': float,         # 檢測信心度 (可選)
       # 其他表面屬性...
@@ -101,7 +101,7 @@ object_info = {
 }
 
 surface_obj = {
-    'label': 'table',
+    'label': 'dining table',
     'bbox': [100, 150, 300, 400],
     'confidence': 0.95
 }
@@ -171,12 +171,12 @@ process_semantic_matching(
   ```python
   [
       {
-          'label': 'table',
+          'label': 'dining table',
           'bbox': [100, 150, 300, 400],
           'confidence': 0.95
       },
       {
-          'label': 'shelf',
+          'label': 'chair',
           'bbox': [50, 200, 200, 350],
           'confidence': 0.88
       }
@@ -224,7 +224,7 @@ insert_objects = [
 
 background_surfaces = [
     {
-        'label': 'table',
+        'label': 'dining table',
         'bbox': [100, 150, 300, 400],
         'confidence': 0.95
     }
@@ -435,7 +435,7 @@ _calculate_semantic_score(
 
 ### 4.3 物件標籤
 - **格式**: `str`
-- **建議**: 使用英文小寫，如 "cup", "table", "book"
+- **建議**: 使用COCO類別名稱，如 "cup", "dining table", "book", "cell phone"
 - **支援的標籤**: 參考模型中的知識庫定義
 
 ---
