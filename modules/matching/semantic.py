@@ -23,24 +23,25 @@ class SemanticMatchingProcessor:
         """獲取最佳的K個匹配結果"""
         return sorted(matching_results, key=lambda x: x['compatibility_score'], reverse=True)[:top_k]
     
-    def find_best_surfaces(self, object_label: str, object_embedding: np.ndarray, 
-                          background_surfaces: List[Dict], top_k: int = 3,
-                          scene_embedding: Optional[np.ndarray] = None) -> List[Dict]:
+    def find_best_placement_positions(self, object_label: str, object_embedding: np.ndarray, 
+                                     background_objects: List[Dict], top_k: int = 3,
+                                     scene_embedding: Optional[np.ndarray] = None) -> List[Dict]:
         """
-        為單一物件找到最佳的前k個表面匹配
+        為單一物件找到最佳的前k個放置位置
         
         Args:
             object_label: 物件標籤 (如 "cup", "book")
             object_embedding: 物件的CLIP嵌入向量 [512,]
-            background_surfaces: 背景表面列表 [{'label': str, 'bbox': [x1,y1,x2,y2], ...}, ...]
+            background_objects: 背景物件列表 [{'label': str, 'bbox': [x1,y1,x2,y2], ...}, ...]
             top_k: 返回前k個最佳匹配，預設3
             scene_embedding: 可選的場景嵌入向量
             
         Returns:
-            List[Dict]: 前k個最佳匹配，格式為:
+            List[Dict]: 前k個最佳放置位置，格式為:
             [
                 {
-                    'surface_label': str,
+                    'reference_object': str,
+                    'placement_type': str,  # 'on_surface', 'beside', 'near'
                     'bbox': [x1, y1, x2, y2],
                     'compatibility_score': float,
                     'rank': int,
@@ -56,28 +57,37 @@ class SemanticMatchingProcessor:
             'id': f'input_{object_label}'
         }
         
-        # 計算與每個表面的匹配分數
+        # 計算與每個背景物件的匹配分數和放置類型
         matches = []
-        for i, surface in enumerate(background_surfaces):
+        for i, bg_obj in enumerate(background_objects):
             try:
+                # 計算相容性分數
                 compatibility_score, detailed_scores = self.semantic_matcher.calculate_semantic_compatibility(
                     object_info=object_info,
-                    surface_obj=surface,
+                    surface_obj=bg_obj,
                     scene_embedding=scene_embedding
                 )
                 
+                # 決定放置類型
+                placement_type = self._determine_placement_type(object_label, bg_obj['label'])
+                
                 match = {
-                    'surface_label': surface['label'],
-                    'bbox': surface['bbox'],
+                    'reference_object': bg_obj['label'],
+                    'placement_type': placement_type,
+                    'bbox': bg_obj['bbox'],
                     'compatibility_score': compatibility_score,
                     'detailed_scores': detailed_scores,
-                    'surface_id': surface.get('id', f'surface_{i}'),
-                    'surface_confidence': surface.get('confidence', 1.0)
+                    'object_id': bg_obj.get('id', f'obj_{i}'),
+                    'object_confidence': bg_obj.get('confidence', 1.0),
+                    # 向後相容性欄位
+                    'surface_label': bg_obj['label'],
+                    'surface_id': bg_obj.get('id', f'obj_{i}'),
+                    'surface_confidence': bg_obj.get('confidence', 1.0)
                 }
                 matches.append(match)
                 
             except Exception as e:
-                print(f"⚠️ 計算 {object_label} 與 {surface['label']} 的匹配失敗: {e}")
+                print(f"⚠️ 計算 {object_label} 與 {bg_obj['label']} 的匹配失敗: {e}")
                 continue
         
         # 按分數排序並取前k個
@@ -90,6 +100,32 @@ class SemanticMatchingProcessor:
         
         return top_matches
     
+    def _determine_placement_type(self, object_label: str, reference_label: str) -> str:
+        """決定放置類型"""
+        # 可以作為表面的物件
+        surface_objects = ['dining table', 'chair', 'couch', 'bed', 'bench', 'sink', 'toilet']
+        
+        # 適合放在旁邊的組合
+        beside_pairs = [
+            ('person', ['chair', 'couch', 'bed']),
+            ('backpack', ['chair', 'person']),
+            ('umbrella', ['person', 'chair']),
+            ('handbag', ['person', 'chair']),
+            ('suitcase', ['person', 'bed']),
+        ]
+        
+        # 檢查是否適合放在表面上
+        if reference_label in surface_objects:
+            return 'on_surface'
+        
+        # 檢查是否適合放在旁邊
+        for obj, refs in beside_pairs:
+            if object_label == obj and reference_label in refs:
+                return 'beside'
+        
+        # 預設為附近
+        return 'near'
+    
 # 主要API函數
 def quick_semantic_match(object_info: Dict, surface_obj: Dict, 
                         scene_embedding: Optional[np.ndarray] = None) -> Tuple[float, Dict]:
@@ -99,26 +135,34 @@ def quick_semantic_match(object_info: Dict, surface_obj: Dict,
 
 
 def find_best_placement(object_label: str, object_embedding: np.ndarray,
-                       background_surfaces: List[Dict], top_k: int = 3,
-                       scene_embedding: Optional[np.ndarray] = None) -> List[Dict]:
+                       background_objects: List[Dict] = None, top_k: int = 3,
+                       scene_embedding: Optional[np.ndarray] = None,
+                       background_surfaces: List[Dict] = None) -> List[Dict]:
     """
     便利函數：為物件找到最佳放置位置
     
     Args:
         object_label: 物件標籤 (如 "cup", "book")
         object_embedding: 物件的CLIP嵌入向量 [512,]
-        background_surfaces: 背景表面列表 [{'label': str, 'bbox': [x1,y1,x2,y2], ...}, ...]
+        background_objects: 背景物件列表 [{'label': str, 'bbox': [x1,y1,x2,y2], ...}, ...]
         top_k: 返回前k個最佳匹配，預設3
         scene_embedding: 可選的場景嵌入向量
+        background_surfaces: (向後相容) 同background_objects
         
     Returns:
-        List[Dict]: 前k個最佳放置位置及其bbox
+        List[Dict]: 前k個最佳放置位置，包含放置類型和參考物件
     """
+    # 向後相容性處理
+    if background_surfaces is not None and background_objects is None:
+        background_objects = background_surfaces
+    elif background_objects is None:
+        raise ValueError("必須提供 background_objects 或 background_surfaces")
+    
     processor = SemanticMatchingProcessor()
-    return processor.find_best_surfaces(
+    return processor.find_best_placement_positions(
         object_label=object_label,
         object_embedding=object_embedding,
-        background_surfaces=background_surfaces,
+        background_objects=background_objects,
         top_k=top_k,
         scene_embedding=scene_embedding
     )

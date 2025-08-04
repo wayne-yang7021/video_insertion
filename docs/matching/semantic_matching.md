@@ -27,18 +27,18 @@ modules/
 find_best_placement(
     object_label: str,
     object_embedding: np.ndarray,
-    background_surfaces: List[Dict],
+    background_objects: List[Dict],
     top_k: int = 3,
     scene_embedding: Optional[np.ndarray] = None
 ) -> List[Dict]
 ```
 
-**功能說明**: 為單一物件找到最佳的前k個放置位置
+**功能說明**: 為單一物件找到最佳的前k個放置位置（包括表面上、旁邊或附近）
 
 **輸入參數**:
 - `object_label` (str): 物件標籤，如 "cup", "book", "laptop"
 - `object_embedding` (np.ndarray): 物件的CLIP嵌入向量 [512,]
-- `background_surfaces` (List[Dict]): 背景表面列表
+- `background_objects` (List[Dict]): 背景物件列表
   ```python
   [
       {
@@ -47,7 +47,7 @@ find_best_placement(
           'confidence': 0.96,  # 可選
           'id': 'table_001'    # 可選
       },
-      # 更多表面...
+      # 更多物件...
   ]
   ```
 - `top_k` (int): 返回前k個最佳匹配，預設3
@@ -57,7 +57,8 @@ find_best_placement(
 ```python
 [
     {
-        'surface_label': 'dining table',
+        'reference_object': 'dining table',
+        'placement_type': 'on_surface',  # 'on_surface', 'beside', 'near'
         'bbox': [100, 150, 500, 400],
         'compatibility_score': 0.783,
         'rank': 1,
@@ -66,8 +67,8 @@ find_best_placement(
             'physical_compatibility': 0.90,
             'scene_coherence': 0.80
         },
-        'surface_id': 'table_001',
-        'surface_confidence': 0.96
+        'object_id': 'table_001',
+        'object_confidence': 0.96
     },
     # 更多匹配結果...
 ]
@@ -92,17 +93,17 @@ def get_clip_embedding(text: str):
 best_placements = find_best_placement(
     object_label="cup",
     object_embedding=get_clip_embedding("a coffee cup"),
-    background_surfaces=[
+    background_objects=[
         {'label': 'dining table', 'bbox': [100, 150, 500, 400]},
         {'label': 'chair', 'bbox': [200, 300, 300, 500]},
-        {'label': 'couch', 'bbox': [600, 200, 900, 450]}
+        {'label': 'person', 'bbox': [600, 200, 900, 450]}
     ],
     top_k=3
 )
 
 # 輸出結果
 for match in best_placements:
-    print(f"{match['rank']}. {match['surface_label']}: {match['compatibility_score']:.3f}")
+    print(f"{match['rank']}. {match['reference_object']} ({match['placement_type']}): {match['compatibility_score']:.3f}")
 ```
 
 ### 2. `quick_semantic_match()` - 單次匹配
