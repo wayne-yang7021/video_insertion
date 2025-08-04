@@ -1,475 +1,233 @@
 # Semantic Matching 語意匹配模組使用說明
 
-本文檔詳細說明語意匹配模組中各個函數的使用方法、輸入輸出要求和功能說明。
+本文檔說明簡化後的語意匹配模組的使用方法和架構。
 
 ## 模組架構
 
 ```
 modules/
-├── models/matching_model.py    # 核心模型類
-└── matching/semantic.py        # 邏輯處理層
+├── models/matching_model.py    # 核心匹配器 (SemanticMatcher)
+└── matching/semantic.py        # API介面層
 ```
+
+## 核心設計理念
+
+簡化後的系統專注於3個核心維度：
+1. **語意相似度** (40%) - CLIP嵌入相似度 + 上下文匹配
+2. **物理相容性** (40%) - 支撐關係 + 穩定性安全檢查  
+3. **場景一致性** (20%) - 物件在特定場景中的合理性
 
 ---
 
-## 1. SemanticMatcher 類 (modules/models/matching_model.py)
+## 主要API函數
 
-### 1.1 初始化
-
-```python
-SemanticMatcher(device: str = "cuda" if torch.cuda.is_available() else "cpu")
-```
-
-**功能說明**: 初始化語意匹配器，載入CLIP模型和知識庫
-
-**輸入參數**:
-- `device` (str, 可選): 計算設備，預設自動選擇GPU或CPU
-
-**輸出**: SemanticMatcher 實例
-
-**使用範例**:
-```python
-from modules.models.matching_model import SemanticMatcher
-
-# 使用預設設備
-matcher = SemanticMatcher()
-
-# 指定使用CPU
-matcher = SemanticMatcher(device="cpu")
-```
-
----
-
-### 1.2 主要函數
-
-#### `calculate_semantic_compatibility()`
+### 1. `find_best_placement()` - 主要API
 
 ```python
-calculate_semantic_compatibility(
-    object_info: Dict, 
-    surface_obj: Dict, 
-    scene_embedding: Optional[np.ndarray] = None
-) -> Tuple[float, Dict]
-```
-
-**功能說明**: 計算物件與表面的綜合語意相容性分數
-
-**輸入參數**:
-- `object_info` (Dict): 要插入物件的資訊
-  ```python
-  {
-      'primary_label': str,        # 物件標籤，如 "cup", "book", "cell phone"
-      'embedding': np.ndarray,     # 物件的CLIP嵌入向量 (shape: [512,])
-      'id': str,                   # 物件ID (可選)
-      # 其他物件屬性...
-  }
-  ```
-
-- `surface_obj` (Dict): 背景表面物件資訊
-  ```python
-  {
-      'label': str,                # 表面標籤，如 "dining table", "chair", "couch"
-      'bbox': List[float],         # 邊界框座標 [x1, y1, x2, y2]
-      'confidence': float,         # 檢測信心度 (可選)
-      # 其他表面屬性...
-  }
-  ```
-
-- `scene_embedding` (np.ndarray, 可選): 場景的CLIP嵌入向量 (shape: [512,])
-
-**輸出**:
-- `Tuple[float, Dict]`: (總分數, 詳細分數字典)
-  ```python
-  (
-      0.75,  # 總分數 (0.0-1.0)
-      {
-          'clip_similarity': 0.8,      # CLIP語意相似度
-          'context_matching': 0.7,     # 上下文匹配分數
-          'physical_support': 1.0,     # 物理支撐相容性
-          'scene_coherence': 0.6,      # 場景一致性
-          'size_compatibility': 0.9    # 尺寸相容性
-      }
-  )
-  ```
-
-**使用範例**:
-```python
-object_info = {
-    'primary_label': 'cup',
-    'embedding': cup_embedding,  # shape: [512,]
-    'id': 'obj_001'
-}
-
-surface_obj = {
-    'label': 'dining table',
-    'bbox': [100, 150, 300, 400],
-    'confidence': 0.95
-}
-
-# 計算相容性
-total_score, detailed_scores = matcher.calculate_semantic_compatibility(
-    object_info=object_info,
-    surface_obj=surface_obj,
-    scene_embedding=scene_embedding  # 可選
-)
-
-print(f"總分數: {total_score:.2f}")
-print(f"詳細分數: {detailed_scores}")
-```
-
----
-
-## 2. SemanticMatchingProcessor 類 (modules/matching/semantic.py)
-
-### 2.1 初始化
-
-```python
-SemanticMatchingProcessor(device: str = "cuda" if torch.cuda.is_available() else "cpu")
-```
-
-**功能說明**: 初始化語意匹配處理器，內部包含SemanticMatcher實例
-
-**輸入參數**:
-- `device` (str, 可選): 計算設備
-
-**輸出**: SemanticMatchingProcessor 實例
-
----
-
-### 2.2 主要函數
-
-#### `process_semantic_matching()`
-
-```python
-process_semantic_matching(
-    insert_objects: List[Dict], 
+find_best_placement(
+    object_label: str,
+    object_embedding: np.ndarray,
     background_surfaces: List[Dict],
-    scene_info: Optional[Dict] = None
+    top_k: int = 3,
+    scene_embedding: Optional[np.ndarray] = None
 ) -> List[Dict]
 ```
 
-**功能說明**: 批量處理語意匹配，為每個物件找到最佳的表面匹配
+**功能說明**: 為單一物件找到最佳的前k個放置位置
 
 **輸入參數**:
-- `insert_objects` (List[Dict]): 要插入的物件列表
-  ```python
-  [
-      {
-          'primary_label': 'cup',
-          'embedding': np.ndarray,  # shape: [512,]
-          'id': 'obj_001'
-      },
-      {
-          'primary_label': 'book',
-          'embedding': np.ndarray,
-          'id': 'obj_002'
-      }
-  ]
-  ```
-
-- `background_surfaces` (List[Dict]): 背景表面物件列表
+- `object_label` (str): 物件標籤，如 "cup", "book", "laptop"
+- `object_embedding` (np.ndarray): 物件的CLIP嵌入向量 [512,]
+- `background_surfaces` (List[Dict]): 背景表面列表
   ```python
   [
       {
           'label': 'dining table',
-          'bbox': [100, 150, 300, 400],
-          'confidence': 0.95
+          'bbox': [100, 150, 500, 400],
+          'confidence': 0.96,  # 可選
+          'id': 'table_001'    # 可選
       },
-      {
-          'label': 'chair',
-          'bbox': [50, 200, 200, 350],
-          'confidence': 0.88
-      }
+      # 更多表面...
   ]
   ```
-
-- `scene_info` (Dict, 可選): 場景資訊
-  ```python
-  {
-      'scene_embedding': np.ndarray,  # shape: [512,]
-      'scene_type': 'office',         # 場景類型 (可選)
-      'lighting': 'natural'           # 光照條件 (可選)
-  }
-  ```
+- `top_k` (int): 返回前k個最佳匹配，預設3
+- `scene_embedding` (np.ndarray, 可選): 場景嵌入向量
 
 **輸出**:
-- `List[Dict]`: 匹配結果列表
-  ```python
-  [
-      {
-          'object': {...},                    # 原始物件資訊
-          'surface': {...},                   # 匹配的表面資訊
-          'compatibility_score': 0.85,       # 相容性分數
-          'detailed_scores': {...},          # 詳細分數
-          'timestamp': '2024-01-01T12:00:00'  # 時間戳
-      },
-      # 更多匹配結果...
-  ]
-  ```
-
-**使用範例**:
 ```python
-from modules.matching.semantic import SemanticMatchingProcessor
-
-processor = SemanticMatchingProcessor()
-
-# 準備資料
-insert_objects = [
+[
     {
-        'primary_label': 'cup',
-        'embedding': cup_embedding,
-        'id': 'obj_001'
-    }
+        'surface_label': 'dining table',
+        'bbox': [100, 150, 500, 400],
+        'compatibility_score': 0.783,
+        'rank': 1,
+        'detailed_scores': {
+            'semantic_similarity': 0.75,
+            'physical_compatibility': 0.90,
+            'scene_coherence': 0.80
+        },
+        'surface_id': 'table_001',
+        'surface_confidence': 0.96
+    },
+    # 更多匹配結果...
 ]
+```
 
-background_surfaces = [
-    {
-        'label': 'dining table',
-        'bbox': [100, 150, 300, 400],
-        'confidence': 0.95
-    }
-]
+**使用範例**:
+```python
+from modules.matching.semantic import find_best_placement
+import clip
+import torch
 
-scene_info = {
-    'scene_embedding': scene_embedding
-}
+# 載入CLIP模型
+device = "cuda" if torch.cuda.is_available() else "cpu"
+clip_model, _ = clip.load("ViT-B/32", device=device)
 
-# 執行匹配
-results = processor.process_semantic_matching(
-    insert_objects=insert_objects,
-    background_surfaces=background_surfaces,
-    scene_info=scene_info
+def get_clip_embedding(text: str):
+    with torch.no_grad():
+        tokens = clip.tokenize([text]).to(device)
+        return clip_model.encode_text(tokens).cpu().numpy()[0]
+
+# 使用API
+best_placements = find_best_placement(
+    object_label="cup",
+    object_embedding=get_clip_embedding("a coffee cup"),
+    background_surfaces=[
+        {'label': 'dining table', 'bbox': [100, 150, 500, 400]},
+        {'label': 'chair', 'bbox': [200, 300, 300, 500]},
+        {'label': 'couch', 'bbox': [600, 200, 900, 450]}
+    ],
+    top_k=3
 )
 
-for result in results:
-    print(f"物件: {result['object']['primary_label']}")
-    print(f"表面: {result['surface']['label']}")
-    print(f"分數: {result['compatibility_score']:.2f}")
+# 輸出結果
+for match in best_placements:
+    print(f"{match['rank']}. {match['surface_label']}: {match['compatibility_score']:.3f}")
 ```
 
----
-
-#### `filter_matches_by_threshold()`
-
-```python
-filter_matches_by_threshold(
-    matching_results: List[Dict], 
-    threshold: float = 0.5
-) -> List[Dict]
-```
-
-**功能說明**: 根據閾值過濾匹配結果
-
-**輸入參數**:
-- `matching_results` (List[Dict]): 匹配結果列表
-- `threshold` (float): 分數閾值，預設0.5
-
-**輸出**:
-- `List[Dict]`: 過濾後的匹配結果
-
-**使用範例**:
-```python
-# 只保留分數大於等於0.7的匹配
-high_quality_matches = processor.filter_matches_by_threshold(
-    matching_results=results,
-    threshold=0.7
-)
-```
-
----
-
-#### `get_best_matches()`
-
-```python
-get_best_matches(
-    matching_results: List[Dict], 
-    top_k: int = 3
-) -> List[Dict]
-```
-
-**功能說明**: 獲取最佳的K個匹配結果
-
-**輸入參數**:
-- `matching_results` (List[Dict]): 匹配結果列表
-- `top_k` (int): 返回的最佳匹配數量，預設3
-
-**輸出**:
-- `List[Dict]`: 按分數排序的前K個匹配結果
-
-**使用範例**:
-```python
-# 獲取最佳的5個匹配
-best_matches = processor.get_best_matches(
-    matching_results=results,
-    top_k=5
-)
-```
-
----
-
-#### `analyze_matching_quality()`
-
-```python
-analyze_matching_quality(matching_results: List[Dict]) -> Dict
-```
-
-**功能說明**: 分析匹配品質統計資訊
-
-**輸入參數**:
-- `matching_results` (List[Dict]): 匹配結果列表
-
-**輸出**:
-- `Dict`: 品質分析報告
-  ```python
-  {
-      'total_matches': 10,              # 總匹配數
-      'average_score': 0.65,            # 平均分數
-      'max_score': 0.95,                # 最高分數
-      'min_score': 0.25,                # 最低分數
-      'std_score': 0.18,                # 分數標準差
-      'high_quality_matches': 3,        # 高品質匹配數 (>=0.7)
-      'medium_quality_matches': 5,      # 中等品質匹配數 (0.4-0.7)
-      'low_quality_matches': 2,         # 低品質匹配數 (<0.4)
-      'overall_quality': 'medium'       # 整體品質評級
-  }
-  ```
-
-**使用範例**:
-```python
-quality_report = processor.analyze_matching_quality(results)
-print(f"整體品質: {quality_report['overall_quality']}")
-print(f"平均分數: {quality_report['average_score']:.2f}")
-```
-
----
-
-#### `get_matching_history()` 和 `clear_history()`
-
-```python
-get_matching_history() -> List[Dict]
-clear_history() -> None
-```
-
-**功能說明**: 獲取和清除匹配歷史記錄
-
-**輸出** (get_matching_history):
-- `List[Dict]`: 歷史記錄列表
-  ```python
-  [
-      {
-          'object_id': 'obj_001',
-          'best_match': {...},          # 最佳匹配結果
-          'total_candidates': 5         # 候選表面數量
-      }
-  ]
-  ```
-
-**使用範例**:
-```python
-# 獲取歷史
-history = processor.get_matching_history()
-
-# 清除歷史
-processor.clear_history()
-```
-
----
-
-## 3. 便利函數
-
-### 3.1 `quick_semantic_match()`
+### 2. `quick_semantic_match()` - 單次匹配
 
 ```python
 quick_semantic_match(
-    object_info: Dict, 
-    surface_obj: Dict, 
+    object_info: Dict,
+    surface_obj: Dict,
     scene_embedding: Optional[np.ndarray] = None
 ) -> Tuple[float, Dict]
 ```
 
-**功能說明**: 快速單次語意匹配，不需要初始化處理器
+**功能說明**: 快速計算單一物件與表面的相容性
 
-**輸入輸出**: 與 `SemanticMatcher.calculate_semantic_compatibility()` 相同
+**輸入參數**:
+- `object_info` (Dict): 物件資訊
+  ```python
+  {
+      'primary_label': 'cup',
+      'embedding': np.ndarray,  # shape: [512,]
+      'id': 'obj_001'
+  }
+  ```
+- `surface_obj` (Dict): 表面資訊
+  ```python
+  {
+      'label': 'dining table',
+      'bbox': [100, 150, 300, 400]
+  }
+  ```
+- `scene_embedding` (np.ndarray, 可選): 場景嵌入向量
+
+**輸出**:
+```python
+(
+    0.75,  # 總分數 (0.0-1.0)
+    {
+        'semantic_similarity': 0.8,      # 語意相似度
+        'physical_compatibility': 0.9,   # 物理相容性
+        'scene_coherence': 0.6          # 場景一致性
+    }
+)
+```
 
 **使用範例**:
 ```python
 from modules.matching.semantic import quick_semantic_match
 
 score, details = quick_semantic_match(
-    object_info=object_info,
-    surface_obj=surface_obj,
-    scene_embedding=scene_embedding
+    object_info={'primary_label': 'cup', 'embedding': cup_embedding},
+    surface_obj={'label': 'dining table', 'bbox': [100, 150, 300, 400]}
 )
+
+print(f"相容性分數: {score:.3f}")
+print(f"詳細分數: {details}")
 ```
 
 ---
 
-### 3.2 `_calculate_semantic_score()` (向後相容)
+## 核心架構說明
 
-```python
-_calculate_semantic_score(
-    object_info: Dict, 
-    surface_obj: Dict, 
-    scene_embedding: np.ndarray
-) -> float
-```
+### SemanticMatcher 類 (modules/models/matching_model.py)
 
-**功能說明**: 保留的舊版本介面，僅返回總分數
+**主要功能**:
+- 載入CLIP模型進行語意理解
+- 整合3個評分維度計算相容性分數
+- 包含安全規則避免不合理的放置
 
-**輸入輸出**: 與新版本類似，但只返回float分數
+**核心方法**:
+- `calculate_semantic_compatibility()`: 計算物件與表面的相容性分數
+- `_calculate_semantic_similarity()`: 結合CLIP和上下文的語意分析
+- `_calculate_physical_compatibility()`: 物理支撐和穩定性檢查
+- `_calculate_scene_coherence()`: 場景一致性評估
 
----
+**為什麼需要**: 提供準確的物件放置建議，避免不安全或不合理的組合
 
-## 4. 資料格式要求
+**如何使用**: 通常不直接使用，而是透過API函數調用
 
-### 4.1 CLIP嵌入向量
-- **格式**: `np.ndarray`
-- **形狀**: `[512,]` (ViT-B/32模型)
-- **數據類型**: `float32`
-- **範圍**: 通常在 [-1, 1] 之間
+### SemanticMatchingProcessor 類 (modules/matching/semantic.py)
 
-### 4.2 邊界框格式
-- **格式**: `List[float]` 或 `np.ndarray`
-- **內容**: `[x1, y1, x2, y2]`
-- **座標系**: 左上角為原點，x向右，y向下
+**主要功能**:
+- 提供簡化的API介面
+- 處理批量匹配和結果排序
 
-### 4.3 物件標籤
-- **格式**: `str`
-- **建議**: 使用COCO類別名稱，如 "cup", "dining table", "book", "cell phone"
-- **支援的標籤**: 參考模型中的知識庫定義
+**核心方法**:
+- `find_best_surfaces()`: 為單一物件找到最佳表面
+- `get_best_matches()`: 從結果中提取前k個最佳匹配
 
----
+**為什麼需要**: 簡化使用介面，隱藏複雜的內部邏輯
 
-## 5. 錯誤處理
-
-所有函數都包含異常處理機制：
-
-- **CLIP模型錯誤**: 返回預設分數 0.3
-- **嵌入向量格式錯誤**: 返回預設分數 0.3
-- **標籤不存在**: 使用基本物理檢查，返回較低分數
-- **記憶體不足**: 自動降級到CPU計算
+**如何使用**: 透過便利函數 `find_best_placement_surfaces()` 調用
 
 ---
 
-## 6. 性能優化建議
+## 評分維度說明
 
-1. **批量處理**: 使用 `SemanticMatchingProcessor` 而非單次調用
-2. **設備選擇**: GPU加速CLIP計算，CPU處理邏輯運算
-3. **嵌入快取**: 預先計算並快取常用物件的嵌入向量
-4. **閾值過濾**: 及早過濾低分數匹配，減少後續計算
+### 1. 語意相似度 (40%)
+- **CLIP相似度**: 物件與表面描述的向量相似度
+- **上下文匹配**: 物件在表面上的情境描述與場景的匹配度
+- **目的**: 確保語意上的合理性
+
+### 2. 物理相容性 (40%)
+- **支撐關係**: 表面是否能物理支撐該物件
+- **安全檢查**: 避免不穩定或危險的組合 (如酒杯放沙發上)
+- **目的**: 確保物理上的可行性和安全性
+
+### 3. 場景一致性 (20%)
+- **場景匹配**: 物件與表面在特定場景中的合理性
+- **常見組合**: 基於真實世界的常見搭配
+- **目的**: 提高放置的自然度和真實感
 
 ---
 
-## 7. 常見問題
+## 資料格式要求
 
-**Q: 如何添加新的物件類型？**
-A: 在 `SemanticMatcher` 的知識庫中添加相應的規則定義
+- **物件標籤**: COCO 80類別名稱 (如 "cup", "dining table", "cell phone")
+- **CLIP嵌入**: shape [512,] 的 numpy array
+- **邊界框**: [x1, y1, x2, y2] 格式的座標列表
+- **分數範圍**: 0.0-1.0，越高表示相容性越好
 
-**Q: 分數總是很低怎麼辦？**
-A: 檢查物件標籤是否在支援列表中，或調整權重配置
+---
 
-**Q: 如何自定義權重？**
-A: 修改 `SemanticMatcher.weights` 字典中的權重值
+## 使用建議
 
-**Q: 支援中文標籤嗎？**
-A: 目前主要支援英文標籤，中文需要額外的翻譯處理
+1. **主要API**: 使用 `find_best_placement()` 獲取最佳放置位置
+2. **單次測試**: 使用 `quick_semantic_match()` 測試特定配對
+3. **分數解讀**: >0.7 高品質，0.4-0.7 中等，<0.4 不建議
+4. **安全考量**: 系統會自動降低不安全組合的分數
