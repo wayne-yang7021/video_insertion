@@ -21,6 +21,7 @@ dependencies = [
     "scikit-learn",
     "transformers",
     "sentence-transformers",
+    "clip",
 ]
 
 [project.optional-dependencies]
@@ -34,3 +35,11 @@ dev = [
 [build-system]
 requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["modules*"]
+exclude = ["data*", "tests*", "scripts*"]
+
+[tool.uv.sources]
+clip = { git = "https://github.com/openai/CLIP.git" }

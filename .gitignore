@@ -5,3 +5,4 @@ __pycache__/
 *.lock
 /data/videos
 /checkpoints
+.kiro
