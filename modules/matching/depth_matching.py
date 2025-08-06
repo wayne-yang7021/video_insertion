@@ -1,6 +1,6 @@
 # modules/matching/depth_matching.py
 import numpy as np
-from modules.models.matching_model import DepthEstimator
+from modules.models.depth_match_model import DepthEstimator
 
 class DepthHandler:
     def __init__(self, model: DepthEstimator):

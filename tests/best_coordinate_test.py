@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 from modules.models.detectron_models import DetectronModel
 from modules.detection.detection import ObjectDetector
-from modules.models.matching_model import DepthEstimator
+from modules.models.depth_match_model import DepthEstimator
 from modules.matching.depth_matching import DepthHandler
 from modules.matching.best_coordinate import OptimalPlacementDetector
 from utils.visualization.visualize_detection import visualize_detections
