@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 *.log
 *.lock
+/src/data/videos
 /data/videos
 /checkpoints
+/output
+.env
 .kiro
+.vscode
