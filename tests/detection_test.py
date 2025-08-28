@@ -7,6 +7,7 @@ if ROOT_PATH not in sys.path:
 from modules.models.detectron_models import DetectronModel
 from modules.detection.detection import ObjectDetector
 from utils.visualization.visualize_detection import visualize_detections
+from utils.get_video_first_frame import extract_first_frame
 from PIL import Image
 import cv2
 
@@ -16,14 +17,16 @@ model.load_detectron()
 
 detector = ObjectDetector(model)
 
+
+video_image = extract_first_frame("data/videos/living_room.mp4")
 # 使用 OpenCV 讀取圖片並轉為 PIL 格式
-img_bgr = cv2.imread("data/living-room.jpg")
-img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-image = Image.fromarray(img_rgb)
+# img_bgr = cv2.imread("data/living-room.jpg")
+# img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+# image = Image.fromarray(img_rgb)
 
 # 偵測
-detections = detector.detect_objects_in_image(image)
-visualize_detections(image, detections, output_path="./output/sample_detected.jpg")
+detections = detector.detect_objects_in_image(video_image)
+visualize_detections(video_image, detections, output_path="./output/sample_detected.jpg")
 
 for r in detections:
     print(f"{r['label']} ({r['score']:.2f}) → box: {r['box']}")

@@ -4,7 +4,7 @@ import os
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if ROOT_PATH not in sys.path:
     sys.path.append(ROOT_PATH)
-from modules.models.matching_model import DepthEstimator
+from modules.models.depth_match_model import DepthEstimator
 from modules.matching.depth_matching import DepthHandler
 from utils.visualization.visualize_depth import overlay_depth_map, visualize_depth_grayscale, visualize_depth_segmented, draw_bbox_depth_labels
 

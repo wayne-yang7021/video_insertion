@@ -10,3 +10,8 @@ __pycache__/
 .env
 .kiro
 .vscode
+*.pt
+*.pth
+.DS_Store
+/data/output
+/external

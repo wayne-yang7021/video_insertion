@@ -15,7 +15,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "tqdm",
-    "Pillow",
+    "pillow",
     "pyyaml",
     "scikit-image",
     "scikit-learn",
@@ -25,6 +25,13 @@ dependencies = [
     "supervision>=0.26.1",
     "ultralytics>=8.3.170",
     "detectron2",
+    "timm>=1.0.19",
+    "pydantic>=2.11.7",
+    "accelerate>=1.10.0",
+    "google-generativeai>=0.8.5",
+    "python-dotenv>=1.1.1",
+    "sam>=5.0.0",
+    "segment-anything",
 ]
 
 [project.optional-dependencies]
@@ -47,4 +54,5 @@ exclude = ["data*", "tests*", "scripts*"]
 [tool.uv.sources]
 clip = { git = "https://github.com/openai/CLIP.git" }
 detectron2 = { git = "https://github.com/facebookresearch/detectron2.git" }
+segment-anything = { git = "https://github.com/facebookresearch/segment-anything.git" }
 

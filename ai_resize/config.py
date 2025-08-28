@@ -2,8 +2,17 @@
 Configuration management for the object placement pipeline.
 """
 
+import sys
 import os
+
+ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
+if ROOT_PATH not in sys.path:
+    sys.path.append(ROOT_PATH)
+
+from dotenv import load_dotenv
 from pathlib import Path
+
+load_dotenv()
 
 
 class Config:
@@ -36,21 +45,22 @@ class Config:
         
     def load_api_key(self):
         """Load Gemini API key from file."""
-        api_key_path = self.data_folder / "api_key.txt"
+        # api_key_path = self.data_folder / "api_key.txt"
         
-        if not api_key_path.exists():
-            raise FileNotFoundError(
-                f"API key file not found at {api_key_path}.\n"
-                f"Please create this file with your Gemini API key."
-            )
+        # if not api_key_path.exists():
+        #     raise FileNotFoundError(
+        #         f"API key file not found at {api_key_path}.\n"
+        #         f"Please create this file with your Gemini API key."
+        #     )
         
-        with open(api_key_path, 'r') as f:
-            api_key = f.read().strip()
+        # with open(api_key_path, 'r') as f:
+        #     api_key = f.read().strip()
         
-        if not api_key:
-            raise ValueError("API key file is empty")
+        # if not api_key:
+        #     raise ValueError("API key file is empty")
         
-        print(f"✅ API key loaded from {api_key_path}")
+        # print(f"✅ API key loaded from {api_key_path}")
+        api_key = os.getenv("GEMINI_API_KEY")
         return api_key
     
     def get_image_paths(self):

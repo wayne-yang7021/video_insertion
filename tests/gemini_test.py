@@ -207,9 +207,8 @@ def make_object_depth_thumbnails(
         if crop.size == 0:
             continue
         # 重新抓一次完整矩形（含非有限值），便於可視化
-        mn, mx = np.min(crop), np.max(crop)
         crop_full = depth_map[y1:y2, x1:x2].astype(np.float32)
-        crop_full = np.where(np.isfinite(crop_full), crop_full, mn)
+        mn, mx = np.min(crop), np.max(crop)
         norm = (crop_full - mn) / (mx - mn + 1e-6)
         tile = (norm * 255.0).clip(0, 255).astype(np.uint8)
         tile = cv2.resize(tile, (tile_size, tile_size), interpolation=cv2.INTER_AREA)
@@ -351,6 +350,9 @@ PLACEMENT_PROMPT_TEMPLATE = """
 [產品屬性 JSON]
 - 系統提供：要置入之產品的屬性（品牌、形狀、可視性需求、擺放限制…）。
 
+[使用者客製化需求]
+{user_prompt}
+
 [輸出 JSON 結構]
 {{
   "product": {{
@@ -469,6 +471,7 @@ def gemini_propose_placement(
         "{user_prompt}", user_prompt.strip() or "（無特別補充）"
     )
 
+
     parts = [
         "以下是場景結構 JSON（請閱讀）：\n" + scene_text,
         "以下是產品屬性 JSON（請閱讀）：\n" + product_text,
@@ -513,7 +516,7 @@ def run_pipeline_with_gemini(
 
     # ---- 讀背景圖（BGR -> RGB/PIL）----
     # 讀影片的第一幀
-    # img_bgr = extract_first_frame("data/videos/living_room.mp4")
+    # img_bgr = extract_first_frame("data/videos/house_tour.mp4")
     # img_bgr = np.array(img_bgr)  # Add this line to convert PIL.Image to np.ndarray
 
     # 讀照片
@@ -537,6 +540,15 @@ def run_pipeline_with_gemini(
     print("bbox depths:", bbox_depths)
 
     # ---- 視覺化（可選）----
+    vis_overlay = overlay_depth_map(img_rgb, depth_map)
+    cv2.imwrite(os.path.join(out_dir, "vis_overlay_magma.jpg"), cv2.cvtColor(vis_overlay, cv2.COLOR_RGB2BGR))
+
+    vis_gray = visualize_depth_grayscale(depth_map)
+    cv2.imwrite(os.path.join(out_dir, "vis_gray.jpg"), cv2.cvtColor(vis_gray, cv2.COLOR_RGB2BGR))
+
+    vis_segmented = visualize_depth_segmented(depth_map)
+    cv2.imwrite(os.path.join(out_dir, "vis_segmented.jpg"), cv2.cvtColor(vis_segmented, cv2.COLOR_RGB2BGR))
+
     vis_labeled = draw_bbox_depth_labels(img_rgb, bboxes, bbox_depths)
     cv2.imwrite(os.path.join(out_dir, "vis_labeled.jpg"), cv2.cvtColor(vis_labeled, cv2.COLOR_RGB2BGR))
 
@@ -641,16 +653,6 @@ def get_best_placement_point(
     return cx, cy
 
 
-def denormalize_point(cx: float, cy: float, bg_width: int, bg_height: int) -> Tuple[int, int]:
-    """
-    將相對座標 (cx, cy) ∈ [0,1] 轉成像素座標 (x, y)。
-    採用 [0,1] → [0, W-1]/[0, H-1] 的對應，並做邊界夾限與四捨五入。
-    """
-    cx = max(0.0, min(1.0, float(cx)))
-    cy = max(0.0, min(1.0, float(cy)))
-    x = int(round(cx * (bg_width  - 1)))
-    y = int(round(cy * (bg_height - 1)))
-    return x, y
 
 # ===================== 範例執行 =====================
 if __name__ == "__main__":
@@ -671,11 +673,4 @@ if __name__ == "__main__":
         user_prompt="",  # 可填你的客製需求
         out_dir="./output",
     )
-    import cv2
-    img = cv2.imread(background_path)
-    if img is None:
-        raise FileNotFoundError(background_path)
-    H, W = img.shape[:2]
-
-    x, y = denormalize_point(cx, cy, W, H)
     print("Best point (relative):", cx, cy)

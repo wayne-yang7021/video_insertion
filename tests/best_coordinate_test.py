@@ -12,7 +12,7 @@ from modules.models.depth_match_model import DepthEstimator
 from modules.matching.depth_matching import DepthHandler
 from modules.matching.best_coordinate import OptimalPlacementDetector
 from utils.visualization.visualize_detection import visualize_detections
-
+from utils.get_video_first_frame import extract_first_frame
 # 初始化模型
 detectron_model = DetectronModel()
 detectron_model.load_detectron()
@@ -20,17 +20,21 @@ detector = ObjectDetector(detectron_model)
 
 depth_model = DepthEstimator()
 depth_handler = DepthHandler(depth_model)
-
 placement_detector = OptimalPlacementDetector()
 
+# # 讀取影片
+# video_image = extract_first_frame("data/videos/living_room_zoom.mp4")
+# video_image = np.array(video_image)  # Add this line to convert PIL.Image to np.ndarray
+# video_image_rgb = cv2.cvtColor(video_image, cv2.COLOR_BGR2RGB)  # 確保是 RGB 格式
+
 # 讀取圖片
-img_bgr = cv2.imread("data/living-room.jpg")
+img_bgr = cv2.imread("data/pictures/classroom.jpg")
 img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 image = Image.fromarray(img_rgb)
 
 # 偵測物件
-detections = detector.detect_objects_in_image(image)
-visualize_detections(image, detections, output_path="./output/placement_detections.jpg")
+detections = detector.detect_objects_in_image(img_bgr)
+visualize_detections(img_bgr, detections, output_path="./output/placement_detections.jpg")
 
 # 顯示物件清單給使用者選
 print("\n偵測到的物件列表：")
