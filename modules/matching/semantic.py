@@ -137,9 +137,12 @@ def quick_semantic_match(object_info: Dict, surface_obj: Dict,
 def find_best_placement(object_label: str, object_embedding: np.ndarray,
                        background_objects: List[Dict] = None, top_k: int = 3,
                        scene_embedding: Optional[np.ndarray] = None,
-                       background_surfaces: List[Dict] = None) -> List[Dict]:
+                       background_surfaces: List[Dict] = None,
+                       image: Optional[np.ndarray] = None,
+                       use_vlm: bool = True,
+                       use_llm_enhanced: bool = False) -> List[Dict]:
     """
-    便利函數：為物件找到最佳放置位置
+    便利函數：為物件找到最佳放置位置，可選擇使用VLM增強或LLM增強
     
     Args:
         object_label: 物件標籤 (如 "cup", "book")
@@ -148,6 +151,9 @@ def find_best_placement(object_label: str, object_embedding: np.ndarray,
         top_k: 返回前k個最佳匹配，預設3
         scene_embedding: 可選的場景嵌入向量
         background_surfaces: (向後相容) 同background_objects
+        image: 可選的場景圖片，用於VLM增強
+        use_vlm: 是否使用VLM增強，預設True
+        use_llm_enhanced: 是否使用LLM增強分析，預設False
         
     Returns:
         List[Dict]: 前k個最佳放置位置，包含放置類型和參考物件
@@ -158,11 +164,58 @@ def find_best_placement(object_label: str, object_embedding: np.ndarray,
     elif background_objects is None:
         raise ValueError("必須提供 background_objects 或 background_surfaces")
     
+    # 如果啟用LLM增強且提供了圖片，則使用LLM增強分析
+    if use_llm_enhanced and image is not None:
+        try:
+            from modules.matching.llm_enhanced import create_llm_enhanced_matcher
+            llm_matcher = create_llm_enhanced_matcher()
+            
+            if llm_matcher.is_enabled():
+                enhanced_result = llm_matcher.enhanced_placement_analysis(
+                    image, object_label, background_objects
+                )
+                print("✅ LLM增強分析完成")
+                
+                # 將單一結果轉換為列表格式以保持向後相容
+                if enhanced_result and enhanced_result.get('reference_object') != 'none':
+                    return [{
+                        'reference_object': enhanced_result['reference_object'],
+                        'bbox': enhanced_result['bbox'],
+                        'compatibility_score': enhanced_result['score'],
+                        'source': enhanced_result.get('source', 'llm_enhanced'),
+                        'rank': 1,
+                        'placement_type': 'llm_suggested'
+                    }]
+                else:
+                    print("⚠️ LLM未找到合適建議，使用標準流程")
+            else:
+                print("⚠️ LLM增強功能未啟用，使用標準流程")
+        except Exception as e:
+            print(f"⚠️ LLM增強失敗，使用標準流程: {e}")
+    
+    # 執行現有的語意匹配
     processor = SemanticMatchingProcessor()
-    return processor.find_best_placement_positions(
+    semantic_matches = processor.find_best_placement_positions(
         object_label=object_label,
         object_embedding=object_embedding,
         background_objects=background_objects,
         top_k=top_k,
         scene_embedding=scene_embedding
     )
+    
+    # 如果啟用VLM且提供了圖片，則使用VLM增強
+    if use_vlm and image is not None:
+        try:
+            from modules.validation.vlm.vlm import create_vlm_helper
+            vlm_helper = create_vlm_helper()
+            
+            if vlm_helper.is_enabled():
+                enhanced_matches = vlm_helper.enhance_matches(image, object_label, semantic_matches)
+                print(f"✅ VLM增強完成，返回{len(enhanced_matches)}個建議")
+                return enhanced_matches
+            else:
+                print("⚠️ VLM功能未啟用，使用原始語意匹配結果")
+        except Exception as e:
+            print(f"⚠️ VLM增強失敗，使用原始結果: {e}")
+    
+    return semantic_matches

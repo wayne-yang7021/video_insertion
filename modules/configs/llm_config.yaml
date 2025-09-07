@@ -1,0 +1,47 @@
+llm_enhanced_matching:
+  enabled: true
+  
+  # LLM提供商配置
+  llm_provider: "gemini"  # gemini, openai, claude
+  api_keys:
+    gemini: "${GEMINI_API_KEY}"
+    openai: "${OPENAI_API_KEY}"
+    claude: "${CLAUDE_API_KEY}"
+  
+  # 功能開關
+  object_filter:
+    enabled: true
+    strict_mode: false
+    
+  vlm_enhancement:
+    enabled: true
+    detailed_prompts: true
+    
+  result_validation:
+    enabled: true
+    min_confidence_threshold: 0.6
+    
+  decision_fusion:
+    strategy: "weighted_consensus"
+    weights:
+      semantic: 0.3
+      vlm: 0.4
+      llm_validation: 0.3
+
+  # 性能配置
+  timeout_seconds: 30
+  max_retries: 3
+  
+  # 場景特定配置
+  scene_rules:
+    kitchen:
+      - "exclude_person"
+      - "include_appliances"
+      - "focus_countertops"
+    living_room:
+      - "exclude_small_items"
+      - "focus_furniture"
+      - "consider_comfort"
+    office:
+      - "focus_desk_surfaces"
+      - "consider_ergonomics"
